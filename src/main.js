@@ -1,18 +1,85 @@
 const map = new maplibregl.Map({
-  style: `https://tiles.openfreemap.org/styles/bright`,
   center: [-1.276167, 51.6895], // [-74.0066, 40.7135],
-  zoom: 15.5,
-  pitch: 45,
+  maxZoom: 22,
+  zoom: 22,
+  maxPitch: 85,
+  pitch: 85,
   bearing: -17.6,
   container: 'map',
   canvasContextAttributes: { antialias: true },
+  hash: true,
+  style: {
+    version: 8,
+    sources: {
+      osm: {
+        type: 'raster',
+        tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '&copy; OpenStreetMap Contributors',
+        maxzoom: 19,
+      },
+      // Use a different source for terrain and hillshade layers, to improve render quality
+      terrainSource: {
+        type: 'raster-dem',
+        url: 'https://tiles.mapterhorn.com/tilejson.json',
+      },
+      hillshadeSource: {
+        type: 'raster-dem',
+        url: 'https://tiles.mapterhorn.com/tilejson.json',
+      },
+    },
+    layers: [
+      {
+        id: 'osm',
+        type: 'raster',
+        source: 'osm',
+      },
+      {
+        id: 'hills',
+        type: 'hillshade',
+        source: 'hillshadeSource',
+        layout: { visibility: 'visible' },
+        paint: { 'hillshade-shadow-color': '#473B24' },
+      },
+    ],
+    terrain: {
+      source: 'terrainSource',
+      exaggeration: 1,
+    },
+  },
 });
+
+function setupSky() {
+  map.setSky({
+    'sky-color': '#d98af2',
+    'sky-horizon-blend': 0.8,
+    'horizon-color': '#bc1ff0',
+    'horizon-fog-blend': 0.9,
+    'fog-color': '#000000',
+    'fog-ground-blend': 0.0,
+  });
+}
 
 // The 'building' layer in the streets vector source contains building-height
 // data from OpenStreetMap.
 map.on('load', () => {
+
+  setupSky();
+
   // Insert the layer beneath any symbol layer.
   const layers = map.getStyle().layers;
+
+  /*
+  let layerIdx = 0;
+  while (layerIdx < layers.length){
+    if (layers[layerIdx].type === 'symbol' || layers[layerIdx].layout['text-field']) {
+      map.remove(layers[layerIdx].id);
+      layers = map.getStyle().layers;
+      break;
+    }
+
+  }
+  */
 
   let labelLayerId;
   for (let i = 0; i < layers.length; i++) {
@@ -51,14 +118,14 @@ map.on('load', () => {
           'interpolate',
           ['linear'],
           ['zoom'],
-          15,
+          19,
           0,
-          16,
+          20,
           ['get', 'render_height'],
         ],
         'fill-extrusion-base': [
           'case',
-          ['>=', ['get', 'zoom'], 16],
+          ['>=', ['get', 'zoom'], 20],
           ['get', 'render_min_height'],
           0,
         ],
@@ -67,3 +134,6 @@ map.on('load', () => {
     labelLayerId,
   );
 });
+
+
+
