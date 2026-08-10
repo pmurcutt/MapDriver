@@ -8,7 +8,7 @@ const map = new maplibregl.Map({
   container: 'map',
   canvasContextAttributes: { antialias: true },
   hash: true,
-  style: '/3d_buildings_style.json',
+  style: '/neon_v1_1.json',
 });
 
 function setupSky() {
