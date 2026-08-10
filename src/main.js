@@ -11,6 +11,17 @@ const map = new maplibregl.Map({
   style: '/neon_v1_1.json',
 });
 
+// Arrow-key camera movement (setupKeyboardCameraControls) is the only
+// enabled input - disable every other pointer/touch/keyboard interaction.
+map.dragPan.disable();
+map.dragRotate.disable();
+map.scrollZoom.disable();
+map.boxZoom.disable();
+map.doubleClickZoom.disable();
+map.touchZoomRotate.disable();
+map.touchPitch.disable();
+map.keyboard.disable();
+
 function setupSky() {
   map.setSky({
     'sky-color': '#d98af2',
@@ -38,8 +49,6 @@ function setupKeyboardCameraControls() {
 
   const pressedKeys = new Set();
   let lastFrameTime = null;
-
-  map.keyboard.disable(); // avoid double handling with the built-in arrow-key panning
 
   window.addEventListener('keydown', (event) => {
     if (MOVE_KEYS[event.key]) {
