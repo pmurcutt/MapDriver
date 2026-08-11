@@ -33,25 +33,24 @@ function setupSky() {
   });
 }
 
-// Moves the camera along the ground plane in the direction the map is
-// currently facing (its bearing), so forward/back/left/right always match
-// what the user sees on screen. Zoom and pitch are left untouched, so
-// altitude never changes - only the map center shifts.
+// Up/Down move the camera's own ground position forward/back along the
+// direction it's currently facing. Left/Right yaw the view about that same
+// fixed camera position (rather than orbiting the far-off ground point the
+// map's `center` refers to), using the transform's own camera-placement
+// math so the eye position is exactly preserved. Camera altitude is pinned
+// throughout, so it never changes.
 function setupKeyboardCameraControls() {
   const SPEED_MPS = 8; // ground speed at the current zoom level
+  const ROTATE_DEG_PER_SEC = 60; // yaw rate
   const EARTH_RADIUS_M = 6378137;
-  const MOVE_KEYS = {
-    ArrowUp: { forward: 1, right: 0 },
-    ArrowDown: { forward: -1, right: 0 },
-    ArrowLeft: { forward: 0, right: -1 },
-    ArrowRight: { forward: 0, right: 1 },
-  };
+  const FORWARD_KEYS = { ArrowUp: 1, ArrowDown: -1 };
+  const ROTATE_KEYS = { ArrowLeft: -1, ArrowRight: 1 };
 
   const pressedKeys = new Set();
   let lastFrameTime = null;
 
   window.addEventListener('keydown', (event) => {
-    if (MOVE_KEYS[event.key]) {
+    if (event.key in FORWARD_KEYS || event.key in ROTATE_KEYS) {
       pressedKeys.add(event.key);
       event.preventDefault();
     }
@@ -67,33 +66,49 @@ function setupKeyboardCameraControls() {
     lastFrameTime = timestamp;
 
     let forwardInput = 0;
-    let rightInput = 0;
+    let rotateInput = 0;
     for (const key of pressedKeys) {
-      forwardInput += MOVE_KEYS[key].forward;
-      rightInput += MOVE_KEYS[key].right;
+      forwardInput += FORWARD_KEYS[key] || 0;
+      rotateInput += ROTATE_KEYS[key] || 0;
     }
 
-    if (forwardInput !== 0 || rightInput !== 0) {
-      const magnitude = Math.hypot(forwardInput, rightInput);
-      forwardInput /= magnitude;
-      rightInput /= magnitude;
+    if (forwardInput !== 0 || rotateInput !== 0) {
+      const transform = map.transform;
+      const pitch = map.getPitch();
+      const bearing = map.getBearing() + rotateInput * ROTATE_DEG_PER_SEC * dt;
+      const cameraAltitude = transform.getCameraAltitude();
+      let cameraLngLat = transform.getCameraLngLat();
 
-      const bearingRad = (map.getBearing() * Math.PI) / 180;
-      // Forward = facing direction (bearing), right = facing + 90deg.
-      const east =
-        forwardInput * Math.sin(bearingRad) + rightInput * Math.cos(bearingRad);
-      const north =
-        forwardInput * Math.cos(bearingRad) - rightInput * Math.sin(bearingRad);
+      if (forwardInput !== 0) {
+        const bearingRad = (bearing * Math.PI) / 180;
+        const east = forwardInput * Math.sin(bearingRad);
+        const north = forwardInput * Math.cos(bearingRad);
+        const distanceM = SPEED_MPS * dt;
 
-      const distanceM = SPEED_MPS * dt;
-      const center = map.getCenter();
-      const dLat = ((north * distanceM) / EARTH_RADIUS_M) * (180 / Math.PI);
-      const dLng =
-        ((east * distanceM) /
-          (EARTH_RADIUS_M * Math.cos((center.lat * Math.PI) / 180))) *
-        (180 / Math.PI);
+        const dLat = ((north * distanceM) / EARTH_RADIUS_M) * (180 / Math.PI);
+        const dLng =
+          ((east * distanceM) /
+            (EARTH_RADIUS_M * Math.cos((cameraLngLat.lat * Math.PI) / 180))) *
+          (180 / Math.PI);
 
-      map.jumpTo({ center: [center.lng + dLng, center.lat + dLat] });
+        cameraLngLat = new maplibregl.LngLat(
+          cameraLngLat.lng + dLng,
+          cameraLngLat.lat + dLat,
+        );
+      }
+
+      // Solve for the center/zoom that puts the camera back at
+      // cameraLngLat/cameraAltitude under the new bearing - this is what
+      // keeps the eye fixed (or moves it only by the amount above) while
+      // rotating, instead of orbiting it around the map center.
+      const { center, zoom } = transform.calculateCenterFromCameraLngLatAlt(
+        cameraLngLat,
+        cameraAltitude,
+        bearing,
+        pitch,
+      );
+
+      map.jumpTo({ center, zoom, bearing });
     }
 
     requestAnimationFrame(tick);
