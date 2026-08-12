@@ -1,7 +1,17 @@
+const EYE_HEIGHT = 1.6;
+const WALK_SPEED = 4;
+const TURN_SPEED = 2;
+const LOOK_AHEAD = 22;
+const ORIGIN = [-1.276167, 51.6895];
+
+const originMercator = maplibregl.MercatorCoordinate.fromLngLat(ORIGIN);
+const metresToMercatorUnits = originMercator.meterInMercatorCoordinateUnits();
+const player = { x: 0, y: 0, heading: Math.PI / 2 };
+
 const map = new maplibregl.Map({
-  center: [-1.276167, 51.6895], // [-74.0066, 40.7135],
+  center: ORIGIN,
   maxZoom: 22,
-  zoom: 22,
+  zoom: LOOK_AHEAD,
   maxPitch: 89,
   pitch: 85,
   bearing: -17.6,
@@ -11,8 +21,7 @@ const map = new maplibregl.Map({
   style: '/neon_v1_1.json',
 });
 
-// Arrow-key camera movement (setupKeyboardCameraControls) is the only
-// enabled input - disable every other pointer/touch/keyboard interaction.
+/*
 map.dragPan.disable();
 map.dragRotate.disable();
 map.scrollZoom.disable();
@@ -21,6 +30,7 @@ map.doubleClickZoom.disable();
 map.touchZoomRotate.disable();
 map.touchPitch.disable();
 map.keyboard.disable();
+*/
 
 function setupSky() {
   map.setSky({
@@ -33,94 +43,59 @@ function setupSky() {
   });
 }
 
-// Up/Down move the camera's own ground position forward/back along the
-// direction it's currently facing. Left/Right yaw the view about that same
-// fixed camera position (rather than orbiting the far-off ground point the
-// map's `center` refers to), using the transform's own camera-placement
-// math so the eye position is exactly preserved. Camera altitude is pinned
-// throughout, so it never changes.
-function setupKeyboardCameraControls() {
-  const SPEED_MPS = 8; // ground speed at the current zoom level
-  const ROTATE_DEG_PER_SEC = 60; // yaw rate
-  const EARTH_RADIUS_M = 6378137;
-  const FORWARD_KEYS = { ArrowUp: 1, ArrowDown: -1 };
-  const ROTATE_KEYS = { ArrowLeft: -1, ArrowRight: 1 };
-
-  const pressedKeys = new Set();
-  let lastFrameTime = null;
-
-  window.addEventListener('keydown', (event) => {
-    if (event.key in FORWARD_KEYS || event.key in ROTATE_KEYS) {
-      pressedKeys.add(event.key);
-      event.preventDefault();
-    }
-  });
-
-  window.addEventListener('keyup', (event) => {
-    pressedKeys.delete(event.key);
-  });
-
-  function tick(timestamp) {
-    if (lastFrameTime === null) lastFrameTime = timestamp;
-    const dt = (timestamp - lastFrameTime) / 1000;
-    lastFrameTime = timestamp;
-
-    let forwardInput = 0;
-    let rotateInput = 0;
-    for (const key of pressedKeys) {
-      forwardInput += FORWARD_KEYS[key] || 0;
-      rotateInput += ROTATE_KEYS[key] || 0;
-    }
-
-    if (forwardInput !== 0 || rotateInput !== 0) {
-      const transform = map.transform;
-      const pitch = map.getPitch();
-      const bearing = map.getBearing() + rotateInput * ROTATE_DEG_PER_SEC * dt;
-      const cameraAltitude = transform.getCameraAltitude();
-      let cameraLngLat = transform.getCameraLngLat();
-
-      if (forwardInput !== 0) {
-        const bearingRad = (bearing * Math.PI) / 180;
-        const east = forwardInput * Math.sin(bearingRad);
-        const north = forwardInput * Math.cos(bearingRad);
-        const distanceM = SPEED_MPS * dt;
-
-        const dLat = ((north * distanceM) / EARTH_RADIUS_M) * (180 / Math.PI);
-        const dLng =
-          ((east * distanceM) /
-            (EARTH_RADIUS_M * Math.cos((cameraLngLat.lat * Math.PI) / 180))) *
-          (180 / Math.PI);
-
-        cameraLngLat = new maplibregl.LngLat(
-          cameraLngLat.lng + dLng,
-          cameraLngLat.lat + dLat,
-        );
-      }
-
-      // Solve for the center/zoom that puts the camera back at
-      // cameraLngLat/cameraAltitude under the new bearing - this is what
-      // keeps the eye fixed (or moves it only by the amount above) while
-      // rotating, instead of orbiting it around the map center.
-      const { center, zoom } = transform.calculateCenterFromCameraLngLatAlt(
-        cameraLngLat,
-        cameraAltitude,
-        bearing,
-        pitch,
-      );
-
-      map.jumpTo({ center, zoom, bearing });
-    }
-
-    requestAnimationFrame(tick);
-  }
-
-  requestAnimationFrame(tick);
-}
-
 map.on('load', () => {
   setupSky();
-  setupKeyboardCameraControls();
 });
 
+function toLngLat(x, y) {
+  return new maplibregl.MercatorCoordinate(
+    originMercator.x + x * metresToMercatorUnits,
+    originMercator.y - y * metresToMercatorUnits,
+  ).toLngLat();
+}
 
+function updateCamera() {
+  const eye = toLngLat(player.x, player.y);
+  const ahead = toLngLat(
+    player.x + Math.cos(player.heading) * LOOK_AHEAD,
+    player.y + Math.sin(player.heading) * LOOK_AHEAD,
+  );
+  map.jumpTo(
+    map.calculateCameraOptionsFromTo(eye, EYE_HEIGHT, ahead, EYE_HEIGHT),
+  );
+}
 
+// Keyboard on desktop, on-screen buttons on touch, both feed the same key set.
+const keysDown = new Set();
+addEventListener('keydown', (event) => keysDown.add(event.code));
+addEventListener('keyup', (event) => keysDown.delete(event.code));
+for (const button of document.querySelectorAll('#controls button')) {
+  const code = button.dataset.key;
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    // Capture so the single lostpointercapture event below covers release,
+    // leaving the button, and touch cancellation.
+    button.setPointerCapture(event.pointerId);
+    keysDown.add(code);
+  });
+  button.addEventListener('lostpointercapture', () => keysDown.delete(code));
+}
+
+let lastFrameTime = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+  lastFrameTime = now;
+
+  if (keysDown.has('KeyA')) player.heading += TURN_SPEED * dt;
+  if (keysDown.has('KeyD')) player.heading -= TURN_SPEED * dt;
+  let step = 0;
+  if (keysDown.has('KeyW')) step += WALK_SPEED * dt;
+  if (keysDown.has('KeyS')) step -= WALK_SPEED * dt;
+  player.x += Math.cos(player.heading) * step;
+  player.y += Math.sin(player.heading) * step;
+
+  updateCamera();
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
