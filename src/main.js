@@ -1,7 +1,7 @@
 const EYE_HEIGHT = 1.6;
 const WALK_SPEED = 4;
 const TURN_SPEED = 2;
-const LOOK_AHEAD = 22;
+const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
 
 const originMercator = maplibregl.MercatorCoordinate.fromLngLat(ORIGIN);
@@ -10,27 +10,16 @@ const player = { x: 0, y: 0, heading: Math.PI / 2 };
 
 const map = new maplibregl.Map({
   center: ORIGIN,
-  maxZoom: 22,
-  zoom: LOOK_AHEAD,
+  maxZoom: 24,
+  zoom: 24,
   maxPitch: 89,
   pitch: 85,
-  bearing: -17.6,
+  bearing: 0.0,
   container: 'map',
   canvasContextAttributes: { antialias: true },
   hash: true,
   style: '/neon_v1_1.json',
 });
-
-/*
-map.dragPan.disable();
-map.dragRotate.disable();
-map.scrollZoom.disable();
-map.boxZoom.disable();
-map.doubleClickZoom.disable();
-map.touchZoomRotate.disable();
-map.touchPitch.disable();
-map.keyboard.disable();
-*/
 
 function setupSky() {
   map.setSky({
