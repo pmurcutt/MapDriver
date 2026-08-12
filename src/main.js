@@ -49,9 +49,7 @@ function updateCamera() {
     player.x + Math.cos(player.heading) * LOOK_AHEAD,
     player.y + Math.sin(player.heading) * LOOK_AHEAD,
   );
-  map.jumpTo(
-    map.calculateCameraOptionsFromTo(eye, EYE_HEIGHT, ahead, EYE_HEIGHT),
-  );
+  map.jumpTo(map.calculateCameraOptionsFromTo(eye, EYE_HEIGHT, ahead, 0));
 }
 
 // Keyboard on desktop, on-screen buttons on touch, both feed the same key set.
