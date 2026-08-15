@@ -1,12 +1,18 @@
 const CAMERA_HEIGHT = 1.6;
-const MAX_SPEED = 40;
+// Approximate average-car physics: forward accel gets to 100km/h in ~9s,
+// braking is a firm (not panic) stop, reverse is weaker and gear-limited.
+const FORWARD_ACCEL = 3; // m/s^2
+const FORWARD_MAX_SPEED = 40; // m/s
+const BRAKE_DECEL = 6; // m/s^2
+const REVERSE_ACCEL = 1.5; // m/s^2
+const REVERSE_MAX_SPEED = 8; // m/s
 const TURN_SPEED = 2;
 const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
 
 const originMercator = maplibregl.MercatorCoordinate.fromLngLat(ORIGIN);
 const metresToMercatorUnits = originMercator.meterInMercatorCoordinateUnits();
-const player = { x: 0, y: 0, heading: Math.PI / 2 };
+const player = { x: 0, y: 0, heading: Math.PI / 2, speed: 0 };
 
 const map = new maplibregl.Map({
   center: ORIGIN,
@@ -75,9 +81,23 @@ function loop(now) {
 
   if (keysDown.has('KeyA')) player.heading += TURN_SPEED * dt;
   if (keysDown.has('KeyD')) player.heading -= TURN_SPEED * dt;
-  let step = 0;
-  if (keysDown.has('KeyW')) step += MAX_SPEED * dt;
-  if (keysDown.has('KeyS')) step -= MAX_SPEED * dt;
+
+  if (keysDown.has('KeyS')) {
+    if (player.speed > 0) {
+      player.speed = Math.max(0, player.speed - BRAKE_DECEL * dt);
+    } else {
+      player.speed = Math.max(
+        -REVERSE_MAX_SPEED,
+        player.speed - REVERSE_ACCEL * dt,
+      );
+    }
+  } else {
+    player.speed = Math.min(
+      FORWARD_MAX_SPEED,
+      player.speed + FORWARD_ACCEL * dt,
+    );
+  }
+  const step = player.speed * dt;
   player.x += Math.cos(player.heading) * step;
   player.y += Math.sin(player.heading) * step;
 
