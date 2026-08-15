@@ -12,9 +12,9 @@ const ORIGIN = [-1.276167, 51.6895];
 // Top speed depends on what's under the vehicle, sampled as a screen pixel
 // colour and matched against the neon_v1_1.json landcover/road fill colours.
 const ONROAD_MAX_SPEED = 60; // m/s, tarmac (road line-color)
-const OFFROAD_MAX_SPEED = 30; // m/s, default ground when no other match
-const ROUGH_MAX_SPEED = 15; // m/s, ice/wood/wetland/sand
-const TERRAIN_OVERSPEED_DECEL = 20; // m/s^2, dragged down hard when over cap
+const OFFROAD_MAX_SPEED = 15; // m/s, default ground when no other match
+const ROUGH_MAX_SPEED = 5; // m/s, ice/wood/wetland/sand
+const TERRAIN_OVERSPEED_DECEL = 40; // m/s^2, dragged down hard when over cap
 const COLOR_MATCH_TOLERANCE = 12;
 const ROAD_COLOR = [0x00, 0x00, 0xff];
 const ROUGH_COLORS = [
