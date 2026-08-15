@@ -1,5 +1,5 @@
-const EYE_HEIGHT = 1.6;
-const WALK_SPEED = 40;
+const CAMERA_HEIGHT = 1.6;
+const MAX_SPEED = 40;
 const TURN_SPEED = 2;
 const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
@@ -49,7 +49,7 @@ function updateCamera() {
     player.x + Math.cos(player.heading) * LOOK_AHEAD,
     player.y + Math.sin(player.heading) * LOOK_AHEAD,
   );
-  map.jumpTo(map.calculateCameraOptionsFromTo(eye, EYE_HEIGHT, ahead, 0));
+  map.jumpTo(map.calculateCameraOptionsFromTo(eye, CAMERA_HEIGHT, ahead, 0));
 }
 
 // Keyboard on desktop, on-screen buttons on touch, both feed the same key set.
@@ -76,8 +76,8 @@ function loop(now) {
   if (keysDown.has('KeyA')) player.heading += TURN_SPEED * dt;
   if (keysDown.has('KeyD')) player.heading -= TURN_SPEED * dt;
   let step = 0;
-  if (keysDown.has('KeyW')) step += WALK_SPEED * dt;
-  if (keysDown.has('KeyS')) step -= WALK_SPEED * dt;
+  if (keysDown.has('KeyW')) step += MAX_SPEED * dt;
+  if (keysDown.has('KeyS')) step -= MAX_SPEED * dt;
   player.x += Math.cos(player.heading) * step;
   player.y += Math.sin(player.heading) * step;
 
