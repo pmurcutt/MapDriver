@@ -88,7 +88,11 @@ function colorsMatch(a, b) {
   );
 }
 
-function getTerrainMaxSpeed() {
+const TERRAIN_SAMPLE_INTERVAL_MS = 100; // cap canvas colour sampling at 10Hz
+let lastTerrainSampleTime = -Infinity;
+let cachedTerrainMaxSpeed = OFFROAD_MAX_SPEED;
+
+function sampleTerrainMaxSpeed() {
   const canvas = map.getCanvas();
   sampleCtx.drawImage(canvas, canvas.width / 2, canvas.height - 1, 1, 1, 0, 0, 1, 1);
   const pixel = sampleCtx.getImageData(0, 0, 1, 1).data;
@@ -96,6 +100,14 @@ function getTerrainMaxSpeed() {
   if (ROUGH_COLORS.some((color) => colorsMatch(pixel, color)))
     return ROUGH_MAX_SPEED;
   return OFFROAD_MAX_SPEED;
+}
+
+function getTerrainMaxSpeed(now) {
+  if (now - lastTerrainSampleTime >= TERRAIN_SAMPLE_INTERVAL_MS) {
+    lastTerrainSampleTime = now;
+    cachedTerrainMaxSpeed = sampleTerrainMaxSpeed();
+  }
+  return cachedTerrainMaxSpeed;
 }
 
 // Keyboard on desktop, on-screen buttons on touch, both feed the same key set.
@@ -121,7 +133,7 @@ function loop(now) {
 
   // Same terrain ratios govern top speed and turn rate: both scale down
   // together off-road and further still on rough ground.
-  const terrainMaxSpeed = getTerrainMaxSpeed();
+  const terrainMaxSpeed = getTerrainMaxSpeed(now);
   const turnRate = TURN_SPEED * (terrainMaxSpeed / ONROAD_MAX_SPEED);
   if (keysDown.has('KeyA')) player.heading += turnRate * dt;
   if (keysDown.has('KeyD')) player.heading -= turnRate * dt;
