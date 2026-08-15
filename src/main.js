@@ -2,13 +2,27 @@ const CAMERA_HEIGHT = 1.6;
 // Approximate average-car physics: forward accel gets to 100km/h in ~9s,
 // braking is a firm (not panic) stop, reverse is weaker and gear-limited.
 const FORWARD_ACCEL = 3; // m/s^2
-const FORWARD_MAX_SPEED = 40; // m/s
-const BRAKE_DECEL = 6; // m/s^2
+const BRAKE_DECEL = 12; // m/s^2
 const REVERSE_ACCEL = 1.5; // m/s^2
 const REVERSE_MAX_SPEED = 8; // m/s
 const TURN_SPEED = 2;
 const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
+
+// Top speed depends on what's under the vehicle, sampled as a screen pixel
+// colour and matched against the neon_v1_1.json landcover/road fill colours.
+const ONROAD_MAX_SPEED = 60; // m/s, tarmac (road line-color)
+const OFFROAD_MAX_SPEED = 30; // m/s, default ground when no other match
+const ROUGH_MAX_SPEED = 15; // m/s, ice/wood/wetland/sand
+const TERRAIN_OVERSPEED_DECEL = 20; // m/s^2, dragged down hard when over cap
+const COLOR_MATCH_TOLERANCE = 12;
+const ROAD_COLOR = [0x00, 0x00, 0xff];
+const ROUGH_COLORS = [
+  [0x39, 0xff, 0x14], // wood
+  [0x05, 0xf6, 0xf6], // ice
+  [0xe6, 0xff, 0x66], // wetland
+  [0xff, 0xff, 0x33], // sand
+];
 
 const originMercator = maplibregl.MercatorCoordinate.fromLngLat(ORIGIN);
 const metresToMercatorUnits = originMercator.meterInMercatorCoordinateUnits();
@@ -22,7 +36,7 @@ const map = new maplibregl.Map({
   pitch: 85,
   bearing: 0.0,
   container: 'map',
-  canvasContextAttributes: { antialias: true },
+  canvasContextAttributes: { antialias: true, preserveDrawingBuffer: true },
   hash: true,
   style: '/neon_v1_1.json',
 });
@@ -56,6 +70,32 @@ function updateCamera() {
     player.y + Math.sin(player.heading) * LOOK_AHEAD,
   );
   map.jumpTo(map.calculateCameraOptionsFromTo(eye, CAMERA_HEIGHT, ahead, 0));
+}
+
+// 1x1 offscreen canvas used to read back the colour under the vehicle each
+// frame; preserveDrawingBuffer above keeps the WebGL canvas readable outside
+// its own render callback.
+const sampleCanvas = document.createElement('canvas');
+sampleCanvas.width = 1;
+sampleCanvas.height = 1;
+const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+
+function colorsMatch(a, b) {
+  return (
+    Math.abs(a[0] - b[0]) <= COLOR_MATCH_TOLERANCE &&
+    Math.abs(a[1] - b[1]) <= COLOR_MATCH_TOLERANCE &&
+    Math.abs(a[2] - b[2]) <= COLOR_MATCH_TOLERANCE
+  );
+}
+
+function getTerrainMaxSpeed() {
+  const canvas = map.getCanvas();
+  sampleCtx.drawImage(canvas, canvas.width / 2, canvas.height - 1, 1, 1, 0, 0, 1, 1);
+  const pixel = sampleCtx.getImageData(0, 0, 1, 1).data;
+  if (colorsMatch(pixel, ROAD_COLOR)) return ONROAD_MAX_SPEED;
+  if (ROUGH_COLORS.some((color) => colorsMatch(pixel, color)))
+    return ROUGH_MAX_SPEED;
+  return OFFROAD_MAX_SPEED;
 }
 
 // Keyboard on desktop, on-screen buttons on touch, both feed the same key set.
@@ -92,10 +132,18 @@ function loop(now) {
       );
     }
   } else {
-    player.speed = Math.min(
-      FORWARD_MAX_SPEED,
-      player.speed + FORWARD_ACCEL * dt,
-    );
+    const terrainMaxSpeed = getTerrainMaxSpeed();
+    if (player.speed > terrainMaxSpeed) {
+      player.speed = Math.max(
+        terrainMaxSpeed,
+        player.speed - TERRAIN_OVERSPEED_DECEL * dt,
+      );
+    } else {
+      player.speed = Math.min(
+        terrainMaxSpeed,
+        player.speed + FORWARD_ACCEL * dt,
+      );
+    }
   }
   const step = player.speed * dt;
   player.x += Math.cos(player.heading) * step;
