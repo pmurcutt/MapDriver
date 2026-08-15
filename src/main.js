@@ -5,7 +5,9 @@ const FORWARD_ACCEL = 3; // m/s^2
 const BRAKE_DECEL = 12; // m/s^2
 const REVERSE_ACCEL = 1.5; // m/s^2
 const REVERSE_MAX_SPEED = 8; // m/s
-const TURN_SPEED = 2; // rad/s, offroad (default) baseline; scales with terrain top speed
+const TURN_SPEED = 1; // rad/s, offroad (default) baseline; scales with terrain top speed
+const HANDBRAKE_MIN_SPEED = 13; // m/s, above this S+turn doubles the turn rate
+const HANDBRAKE_TURN_MULTIPLIER = 2;
 const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
 
@@ -144,7 +146,14 @@ function loop(now) {
   const terrainMaxSpeed = getTerrainMaxSpeed(now);
   const turnRateMaxSpeed =
     terrainMaxSpeed === IMPASSABLE_MAX_SPEED ? ROUGH_MAX_SPEED : terrainMaxSpeed;
-  const turnRate = TURN_SPEED * (turnRateMaxSpeed / ONROAD_MAX_SPEED);
+  const handbrakeTurning =
+    keysDown.has('KeyS') &&
+    (keysDown.has('KeyA') || keysDown.has('KeyD')) &&
+    player.speed > HANDBRAKE_MIN_SPEED;
+  const turnRate =
+    TURN_SPEED *
+    (turnRateMaxSpeed / ONROAD_MAX_SPEED) *
+    (handbrakeTurning ? HANDBRAKE_TURN_MULTIPLIER : 1);
   if (keysDown.has('KeyA')) player.heading += turnRate * dt;
   if (keysDown.has('KeyD')) player.heading -= turnRate * dt;
 
