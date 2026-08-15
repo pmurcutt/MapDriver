@@ -14,6 +14,7 @@ const ORIGIN = [-1.276167, 51.6895];
 const ONROAD_MAX_SPEED = 60; // m/s, tarmac (road line-color)
 const OFFROAD_MAX_SPEED = 15; // m/s, default ground when no other match
 const ROUGH_MAX_SPEED = 8; // m/s, ice/wood/wetland/sand
+const IMPASSABLE_MAX_SPEED = 0; // m/s, water/buildings; reverse still works
 const TERRAIN_OVERSPEED_DECEL = 40; // m/s^2, dragged down hard when over cap
 const COLOR_MATCH_TOLERANCE = 12;
 const ROAD_COLOR = [0x00, 0x00, 0xff];
@@ -22,6 +23,10 @@ const ROUGH_COLORS = [
   [0x05, 0xf6, 0xf6], // ice
   [0xe6, 0xff, 0x66], // wetland
   [0xff, 0xff, 0x33], // sand
+];
+const IMPASSABLE_COLORS = [
+  [0x00, 0xff, 0xff], // water
+  [0xff, 0xff, 0xff], // building
 ];
 
 const originMercator = maplibregl.MercatorCoordinate.fromLngLat(ORIGIN);
@@ -96,6 +101,8 @@ function sampleTerrainMaxSpeed() {
   const canvas = map.getCanvas();
   sampleCtx.drawImage(canvas, canvas.width / 2, canvas.height - 1, 1, 1, 0, 0, 1, 1);
   const pixel = sampleCtx.getImageData(0, 0, 1, 1).data;
+  if (IMPASSABLE_COLORS.some((color) => colorsMatch(pixel, color)))
+    return IMPASSABLE_MAX_SPEED;
   if (colorsMatch(pixel, ROAD_COLOR)) return ONROAD_MAX_SPEED;
   if (ROUGH_COLORS.some((color) => colorsMatch(pixel, color)))
     return ROUGH_MAX_SPEED;
@@ -132,11 +139,19 @@ function loop(now) {
   lastFrameTime = now;
 
   // Same terrain ratios govern top speed and turn rate: both scale down
-  // together off-road and further still on rough ground.
+  // together off-road and further still on rough ground. Impassable terrain
+  // stops the car (max speed 0) but shouldn't also lock the steering, so
+  // turning still uses the rough-terrain rate there.
   const terrainMaxSpeed = getTerrainMaxSpeed(now);
-  const turnRate = TURN_SPEED * (terrainMaxSpeed / ONROAD_MAX_SPEED);
+  const turnRateMaxSpeed =
+    terrainMaxSpeed === IMPASSABLE_MAX_SPEED ? ROUGH_MAX_SPEED : terrainMaxSpeed;
+  const turnRate = TURN_SPEED * (turnRateMaxSpeed / ONROAD_MAX_SPEED);
   if (keysDown.has('KeyA')) player.heading += turnRate * dt;
   if (keysDown.has('KeyD')) player.heading -= turnRate * dt;
+
+  if (terrainMaxSpeed === IMPASSABLE_MAX_SPEED && player.speed > 0) {
+    player.speed = 0; // collision: stop dead instead of the usual gradual decel
+  }
 
   if (keysDown.has('KeyS')) {
     if (player.speed > 0) {
