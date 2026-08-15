@@ -5,7 +5,7 @@ const FORWARD_ACCEL = 3; // m/s^2
 const BRAKE_DECEL = 12; // m/s^2
 const REVERSE_ACCEL = 1.5; // m/s^2
 const REVERSE_MAX_SPEED = 8; // m/s
-const TURN_SPEED = 2;
+const TURN_SPEED = 2; // rad/s, offroad (default) baseline; scales with terrain top speed
 const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
 
@@ -13,7 +13,7 @@ const ORIGIN = [-1.276167, 51.6895];
 // colour and matched against the neon_v1_1.json landcover/road fill colours.
 const ONROAD_MAX_SPEED = 60; // m/s, tarmac (road line-color)
 const OFFROAD_MAX_SPEED = 15; // m/s, default ground when no other match
-const ROUGH_MAX_SPEED = 5; // m/s, ice/wood/wetland/sand
+const ROUGH_MAX_SPEED = 8; // m/s, ice/wood/wetland/sand
 const TERRAIN_OVERSPEED_DECEL = 40; // m/s^2, dragged down hard when over cap
 const COLOR_MATCH_TOLERANCE = 12;
 const ROAD_COLOR = [0x00, 0x00, 0xff];
@@ -119,8 +119,12 @@ function loop(now) {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
 
-  if (keysDown.has('KeyA')) player.heading += TURN_SPEED * dt;
-  if (keysDown.has('KeyD')) player.heading -= TURN_SPEED * dt;
+  // Same terrain ratios govern top speed and turn rate: both scale down
+  // together off-road and further still on rough ground.
+  const terrainMaxSpeed = getTerrainMaxSpeed();
+  const turnRate = TURN_SPEED * (terrainMaxSpeed / ONROAD_MAX_SPEED);
+  if (keysDown.has('KeyA')) player.heading += turnRate * dt;
+  if (keysDown.has('KeyD')) player.heading -= turnRate * dt;
 
   if (keysDown.has('KeyS')) {
     if (player.speed > 0) {
@@ -132,7 +136,6 @@ function loop(now) {
       );
     }
   } else {
-    const terrainMaxSpeed = getTerrainMaxSpeed();
     if (player.speed > terrainMaxSpeed) {
       player.speed = Math.max(
         terrainMaxSpeed,
