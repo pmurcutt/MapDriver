@@ -1,5 +1,5 @@
 const EYE_HEIGHT = 1.6;
-const WALK_SPEED = 4;
+const WALK_SPEED = 40;
 const TURN_SPEED = 2;
 const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
