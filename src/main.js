@@ -25,8 +25,7 @@ const ROUGH_COLORS = [
   [0xff, 0xff, 0x33], // sand
 ];
 const IMPASSABLE_COLORS = [
-  [0x00, 0xff, 0xff], // water
-  [0xff, 0xff, 0xff], // building
+  [0x00, 0xff, 0xff], // water & building interiors
 ];
 
 const originMercator = maplibregl.MercatorCoordinate.fromLngLat(ORIGIN);

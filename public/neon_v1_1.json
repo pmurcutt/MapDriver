@@ -1722,10 +1722,9 @@
       "type": "fill",
       "source": "openmaptiles",
       "source-layer": "building",
-      "minzoom": 13,
-      "maxzoom": 14,
+      "minzoom": 18,
       "paint": {
-        "fill-color": "#FFFFFF"
+        "fill-color": "#00FFFF"
       }
     },
     {
