@@ -26,17 +26,17 @@ const BRAKE_DECEL = 12; // m/s^2
 const REVERSE_ACCEL = 1.5; // m/s^2
 const REVERSE_MAX_SPEED = 8; // m/s
 const HANDBRAKE_MIN_SPEED = 13; // m/s, above this S+turn doubles the turn rate
-const HANDBRAKE_TURN_MULTIPLIER = 2;
+const HANDBRAKE_TURN_MULTIPLIER = 1.5;
 const LOOK_AHEAD = 20;
 const ORIGIN = [-1.276167, 51.6895];
 
 // Top speed depends on what's under the vehicle, sampled as a screen pixel
 // colour and matched against the neon_v1_1.json landcover/road fill colours.
-const ONROAD_MAX_SPEED = 60; // m/s, tarmac (road line-color)
-const OFFROAD_MAX_SPEED = 15; // m/s, default ground when no other match
-const ROUGH_MAX_SPEED = 8; // m/s, ice/wood/wetland/sand
+const ONROAD_MAX_SPEED = KPH_TO_MPS * 500; // tarmac (road line-color)
+const OFFROAD_MAX_SPEED = KPH_TO_MPS * 60; // default ground when no other match
+const ROUGH_MAX_SPEED = KPH_TO_MPS * 30; // m/s, ice/wood/wetland/sand
 const IMPASSABLE_MAX_SPEED = 0; // m/s, water/buildings; reverse still works
-const TERRAIN_OVERSPEED_DECEL = 40; // m/s^2, dragged down hard when over cap
+const TERRAIN_OVERSPEED_DECEL = 20; // m/s^2, dragged down hard when over cap
 
 // Turn rate per terrain, tuned independently of top speed.
 const ONROAD_TURN_RATE = 1; // rad/s, tarmac (road line-color)
