@@ -1,11 +1,30 @@
 const CAMERA_HEIGHT = 1.6;
-// Approximate average-car physics: forward accel gets to 100km/h in ~9s,
-// braking is a firm (not panic) stop, reverse is weaker and gear-limited.
-const FORWARD_ACCEL = 3; // m/s^2
+// Forward accel follows a car-like gear curve: strong at the start of each
+// gear, tapering off logarithmically as speed climbs through it, then a
+// fresh (lower) peak at the next gear. Braking is a firm (not panic) stop;
+// reverse is weaker and gear-limited.
+const KPH_TO_MPS = 1000 / 3600;
+const GEARS = [
+  { minSpeed: 0, peakAccel: 5.0 }, // 1st: 0-15 km/h
+  { minSpeed: 15 * KPH_TO_MPS, peakAccel: 3.5 }, // 2nd: 15-35 km/h
+  { minSpeed: 35 * KPH_TO_MPS, peakAccel: 2.5 }, // 3rd: 35-60 km/h
+  { minSpeed: 60 * KPH_TO_MPS, peakAccel: 1.8 }, // 4th: 60-80 km/h
+  { minSpeed: 80 * KPH_TO_MPS, peakAccel: 1.2 }, // 5th: 80 km/h and up
+];
+
+function getForwardAccel(speed) {
+  let gear = GEARS[0];
+  for (const g of GEARS) {
+    if (speed >= g.minSpeed) gear = g;
+    else break;
+  }
+  const speedIntoGear = Math.max(0, speed - gear.minSpeed);
+  return gear.peakAccel / (1 + Math.log(1 + speedIntoGear));
+}
+
 const BRAKE_DECEL = 12; // m/s^2
 const REVERSE_ACCEL = 1.5; // m/s^2
 const REVERSE_MAX_SPEED = 8; // m/s
-const TURN_SPEED = 1; // rad/s, onroad (default) baseline; scales with terrain top speed
 const HANDBRAKE_MIN_SPEED = 13; // m/s, above this S+turn doubles the turn rate
 const HANDBRAKE_TURN_MULTIPLIER = 2;
 const LOOK_AHEAD = 20;
@@ -18,6 +37,12 @@ const OFFROAD_MAX_SPEED = 15; // m/s, default ground when no other match
 const ROUGH_MAX_SPEED = 8; // m/s, ice/wood/wetland/sand
 const IMPASSABLE_MAX_SPEED = 0; // m/s, water/buildings; reverse still works
 const TERRAIN_OVERSPEED_DECEL = 40; // m/s^2, dragged down hard when over cap
+
+// Turn rate per terrain, tuned independently of top speed.
+const ONROAD_TURN_RATE = 1; // rad/s, tarmac (road line-color)
+const OFFROAD_TURN_RATE = 0.25; // rad/s, default ground when no other match
+const ROUGH_TURN_RATE = 0.13; // rad/s, ice/wood/wetland/sand; also used for
+// impassable terrain (steering still works while stopped)
 const COLOR_MATCH_TOLERANCE = 12;
 const ROAD_COLOR = [0x00, 0x00, 0xff];
 const ROUGH_COLORS = [
@@ -97,25 +122,28 @@ function colorsMatch(a, b) {
 const TERRAIN_SAMPLE_INTERVAL_MS = 100; // cap canvas colour sampling at 10Hz
 let lastTerrainSampleTime = -Infinity;
 let cachedTerrainMaxSpeed = OFFROAD_MAX_SPEED;
+let cachedTerrainTurnRate = OFFROAD_TURN_RATE;
 
-function sampleTerrainMaxSpeed() {
+function sampleTerrain() {
   const canvas = map.getCanvas();
   sampleCtx.drawImage(canvas, canvas.width / 2, canvas.height - 1, 1, 1, 0, 0, 1, 1);
   const pixel = sampleCtx.getImageData(0, 0, 1, 1).data;
   if (IMPASSABLE_COLORS.some((color) => colorsMatch(pixel, color)))
-    return IMPASSABLE_MAX_SPEED;
-  if (colorsMatch(pixel, ROAD_COLOR)) return ONROAD_MAX_SPEED;
+    return { maxSpeed: IMPASSABLE_MAX_SPEED, turnRate: ROUGH_TURN_RATE };
+  if (colorsMatch(pixel, ROAD_COLOR))
+    return { maxSpeed: ONROAD_MAX_SPEED, turnRate: ONROAD_TURN_RATE };
   if (ROUGH_COLORS.some((color) => colorsMatch(pixel, color)))
-    return ROUGH_MAX_SPEED;
-  return OFFROAD_MAX_SPEED;
+    return { maxSpeed: ROUGH_MAX_SPEED, turnRate: ROUGH_TURN_RATE };
+  return { maxSpeed: OFFROAD_MAX_SPEED, turnRate: OFFROAD_TURN_RATE };
 }
 
-function getTerrainMaxSpeed(now) {
+function getTerrain(now) {
   if (now - lastTerrainSampleTime >= TERRAIN_SAMPLE_INTERVAL_MS) {
     lastTerrainSampleTime = now;
-    cachedTerrainMaxSpeed = sampleTerrainMaxSpeed();
+    ({ maxSpeed: cachedTerrainMaxSpeed, turnRate: cachedTerrainTurnRate } =
+      sampleTerrain());
   }
-  return cachedTerrainMaxSpeed;
+  return { maxSpeed: cachedTerrainMaxSpeed, turnRate: cachedTerrainTurnRate };
 }
 
 // Keyboard on desktop, on-screen buttons on touch, both feed the same key set.
@@ -139,21 +167,14 @@ function loop(now) {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
 
-  // Same terrain ratios govern top speed and turn rate: both scale down
-  // together off-road and further still on rough ground. Impassable terrain
-  // stops the car (max speed 0) but shouldn't also lock the steering, so
-  // turning still uses the rough-terrain rate there.
-  const terrainMaxSpeed = getTerrainMaxSpeed(now);
-  const turnRateMaxSpeed =
-    terrainMaxSpeed === IMPASSABLE_MAX_SPEED ? ROUGH_MAX_SPEED : terrainMaxSpeed;
+  const { maxSpeed: terrainMaxSpeed, turnRate: terrainTurnRate } =
+    getTerrain(now);
   const handbrakeTurning =
     keysDown.has('KeyS') &&
     (keysDown.has('KeyA') || keysDown.has('KeyD')) &&
     player.speed > HANDBRAKE_MIN_SPEED;
   const turnRate =
-    TURN_SPEED *
-    (turnRateMaxSpeed / ONROAD_MAX_SPEED) *
-    (handbrakeTurning ? HANDBRAKE_TURN_MULTIPLIER : 1);
+    terrainTurnRate * (handbrakeTurning ? HANDBRAKE_TURN_MULTIPLIER : 1);
   if (keysDown.has('KeyA')) player.heading += turnRate * dt;
   if (keysDown.has('KeyD')) player.heading -= turnRate * dt;
 
@@ -179,7 +200,7 @@ function loop(now) {
     } else {
       player.speed = Math.min(
         terrainMaxSpeed,
-        player.speed + FORWARD_ACCEL * dt,
+        player.speed + getForwardAccel(player.speed) * dt,
       );
     }
   }
