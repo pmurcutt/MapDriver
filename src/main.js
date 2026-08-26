@@ -7,9 +7,9 @@ const KPH_TO_MPS = 1000 / 3600;
 const GEARS = [
   { minSpeed: 0, peakAccel: 5.0 }, // 1st: 0-15 km/h
   { minSpeed: 15 * KPH_TO_MPS, peakAccel: 3.5 }, // 2nd: 15-35 km/h
-  { minSpeed: 35 * KPH_TO_MPS, peakAccel: 2.5 }, // 3rd: 35-60 km/h
-  { minSpeed: 60 * KPH_TO_MPS, peakAccel: 1.8 }, // 4th: 60-80 km/h
-  { minSpeed: 80 * KPH_TO_MPS, peakAccel: 1.2 }, // 5th: 80 km/h and up
+  { minSpeed: 35 * KPH_TO_MPS, peakAccel: 4.5 }, // 3rd: 35-60 km/h
+  { minSpeed: 60 * KPH_TO_MPS, peakAccel: 3.8 }, // 4th: 60-80 km/h
+  { minSpeed: 80 * KPH_TO_MPS, peakAccel: 3.2 }, // 5th: 80 km/h and up
 ];
 
 function getForwardAccel(speed) {
