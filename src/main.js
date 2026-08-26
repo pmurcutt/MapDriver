@@ -5,11 +5,11 @@ const CAMERA_HEIGHT = 1.6;
 // reverse is weaker and gear-limited.
 const KPH_TO_MPS = 1000 / 3600;
 const GEARS = [
-  { minSpeed: 0, peakAccel: 5.0 }, // 1st: 0-15 km/h
-  { minSpeed: 15 * KPH_TO_MPS, peakAccel: 3.5 }, // 2nd: 15-35 km/h
-  { minSpeed: 35 * KPH_TO_MPS, peakAccel: 4.5 }, // 3rd: 35-60 km/h
-  { minSpeed: 60 * KPH_TO_MPS, peakAccel: 3.8 }, // 4th: 60-80 km/h
-  { minSpeed: 80 * KPH_TO_MPS, peakAccel: 3.2 }, // 5th: 80 km/h and up
+  { minSpeed: 0, peakAccel: 5.0 }, // 1st: 0-30 km/h
+  { minSpeed: 30 * KPH_TO_MPS, peakAccel: 3.5 }, // 2nd: 30-70 km/h
+  { minSpeed: 70 * KPH_TO_MPS, peakAccel: 4.5 }, // 3rd: 70-120 km/h
+  { minSpeed: 120 * KPH_TO_MPS, peakAccel: 3.8 }, // 4th: 120-160 km/h
+  { minSpeed: 160 * KPH_TO_MPS, peakAccel: 3.2 }, // 5th: 160 km/h and up
 ];
 
 const GEAR_KICK_WIDTH = 0.1; // fraction of gear width covered by the upshift kick
@@ -67,7 +67,7 @@ const ONROAD_MAX_SPEED = KPH_TO_MPS * 650; // tarmac (road line-color)
 const OFFROAD_MAX_SPEED = KPH_TO_MPS * 60; // default ground when no other match
 const ROUGH_MAX_SPEED = KPH_TO_MPS * 30; // m/s, ice/wood/wetland/sand
 const IMPASSABLE_MAX_SPEED = 0; // m/s, water/buildings; reverse still works
-const TERRAIN_OVERSPEED_DECEL = 20; // m/s^2, dragged down hard when over cap
+const TERRAIN_OVERSPEED_DECEL = 40; // m/s^2, dragged down hard when over cap
 
 // Turn rate per terrain, tuned independently of top speed.
 const ONROAD_TURN_RATE = 1; // rad/s, tarmac (road line-color)
