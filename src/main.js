@@ -9,12 +9,13 @@ const GEARS = [
   { minSpeed: 30 * KPH_TO_MPS, peakAccel: 3.5 }, // 2nd: 30-70 km/h
   { minSpeed: 70 * KPH_TO_MPS, peakAccel: 4.5 }, // 3rd: 70-120 km/h
   { minSpeed: 120 * KPH_TO_MPS, peakAccel: 3.8 }, // 4th: 120-160 km/h
-  { minSpeed: 160 * KPH_TO_MPS, peakAccel: 3.2 }, // 5th: 160 km/h and up
+  { minSpeed: 160 * KPH_TO_MPS, peakAccel: 3.2 }, // 5th: 160-300 km/h
+  { minSpeed: 300 * KPH_TO_MPS, peakAccel: 2.6 }, // 6th: 300 km/h and up
 ];
 
 const GEAR_KICK_WIDTH = 0.1; // fraction of gear width covered by the upshift kick
-const GEAR_KICK_GAIN = 1.5; // peak gain right at the start of a gear, ramping to 1
-const GEAR_END_GAIN = 0.7; // gain logarithmically reached by the end of the gear
+const GEAR_KICK_GAIN = 2.5; // peak gain right at the start of a gear, ramping to 1
+const GEAR_END_GAIN = 0.5; // gain logarithmically reached by the end of the gear
 
 function getGearIndex(speed) {
   let index = 0;
@@ -63,7 +64,7 @@ const ORIGIN = [-1.276167, 51.6895];
 
 // Top speed depends on what's under the vehicle, sampled as a screen pixel
 // colour and matched against the neon_v1_1.json landcover/road fill colours.
-const ONROAD_MAX_SPEED = KPH_TO_MPS * 650; // tarmac (road line-color)
+const ONROAD_MAX_SPEED = KPH_TO_MPS * 600; // tarmac (road line-color)
 const OFFROAD_MAX_SPEED = KPH_TO_MPS * 60; // default ground when no other match
 const ROUGH_MAX_SPEED = KPH_TO_MPS * 30; // m/s, ice/wood/wetland/sand
 const IMPASSABLE_MAX_SPEED = 0; // m/s, water/buildings; reverse still works
@@ -195,7 +196,7 @@ for (const button of document.querySelectorAll('#controls button')) {
 
 // Low-res gauge: small canvas backing store, scaled up by CSS with
 // image-rendering: pixelated so it reads as a chunky retro dial.
-const SPEEDO_MAX_KPH = 500;
+const SPEEDO_MAX_KPH = ONROAD_MAX_SPEED;
 const MPS_TO_KPH = 3.6;
 const speedoCanvas = document.getElementById('speedometer');
 const speedoCtx = speedoCanvas.getContext('2d');
