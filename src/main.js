@@ -233,6 +233,84 @@ function drawSpeedometer(kph) {
   speedoCtx.fillText(`${Math.round(kph)} KPH`, cx, cy - radius / 3);
 }
 
+// Rev counter: needle sits at ~20% full at the bottom of the current gear's
+// speed band and climbs to ~90% at the top of it, so it reads like an RPM
+// gauge even though gears here are just acceleration bands. Redline (top
+// 20% of the dial) turns everything red as a shift warning.
+const REV_REDLINE_FRACTION = 0.8;
+const revCanvas = document.getElementById('revcounter');
+const revCtx = revCanvas.getContext('2d');
+revCtx.imageSmoothingEnabled = false;
+
+function revAngle(fraction) {
+  return Math.PI - Math.min(Math.max(fraction, 0), 1) * Math.PI;
+}
+
+function getGearRange(speed) {
+  let index = 0;
+  for (let i = 0; i < GEARS.length; i++) {
+    if (speed >= GEARS[i].minSpeed) index = i;
+    else break;
+  }
+  const start = GEARS[index].minSpeed;
+  const end =
+    index + 1 < GEARS.length ? GEARS[index + 1].minSpeed : ONROAD_MAX_SPEED;
+  return { start, end };
+}
+
+function getRevFraction(speed) {
+  const clampedSpeed = Math.max(0, speed);
+  const { start, end } = getGearRange(clampedSpeed);
+  const t = end > start ? (clampedSpeed - start) / (end - start) : 0;
+  return Math.min(1, Math.max(0, 0.2 + 0.7 * t));
+}
+
+function drawRevCounter(fraction) {
+  const w = revCanvas.width;
+  const h = revCanvas.height;
+  const cx = w / 2;
+  const cy = h - 6;
+  const radius = h - 14;
+  const isRedline = fraction >= REV_REDLINE_FRACTION;
+  const needleColor = isRedline ? '#f00' : '#0f0';
+
+  revCtx.fillStyle = '#111';
+  revCtx.fillRect(0, 0, w, h);
+
+  revCtx.lineWidth = 2;
+  for (let tick = 0; tick <= 100; tick += 20) {
+    const tickFraction = tick / 100;
+    const angle = revAngle(tickFraction);
+    revCtx.strokeStyle = tickFraction >= REV_REDLINE_FRACTION ? '#f00' : '#0f0';
+    const innerRadius = radius - 12;
+    revCtx.beginPath();
+    revCtx.moveTo(cx + innerRadius * Math.cos(angle), cy - innerRadius * Math.sin(angle));
+    revCtx.lineTo(cx + radius * Math.cos(angle), cy - radius * Math.sin(angle));
+    revCtx.stroke();
+  }
+
+  const needleAngle = revAngle(fraction);
+  revCtx.strokeStyle = needleColor;
+  revCtx.lineWidth = 3;
+  revCtx.beginPath();
+  revCtx.moveTo(cx, cy);
+  revCtx.lineTo(
+    cx + (radius - 10) * Math.cos(needleAngle),
+    cy - (radius - 10) * Math.sin(needleAngle),
+  );
+  revCtx.stroke();
+
+  revCtx.fillStyle = needleColor;
+  revCtx.beginPath();
+  revCtx.arc(cx, cy, 4, 0, 2 * Math.PI);
+  revCtx.fill();
+
+  revCtx.font = '10px monospace';
+  revCtx.textAlign = 'center';
+  revCtx.textBaseline = 'alphabetic';
+  revCtx.fillText('REV', cx, cy - radius / 3);
+}
+
 let lastFrameTime = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
@@ -281,6 +359,7 @@ function loop(now) {
 
   updateCamera();
   drawSpeedometer(Math.abs(player.speed) * MPS_TO_KPH);
+  drawRevCounter(getRevFraction(player.speed));
   requestAnimationFrame(loop);
 }
 
