@@ -162,6 +162,77 @@ for (const button of document.querySelectorAll('#controls button')) {
   button.addEventListener('lostpointercapture', () => keysDown.delete(code));
 }
 
+// Low-res gauge: small canvas backing store, scaled up by CSS with
+// image-rendering: pixelated so it reads as a chunky retro dial.
+const SPEEDO_MAX_KPH = 500;
+const MPS_TO_KPH = 3.6;
+const speedoCanvas = document.getElementById('speedometer');
+const speedoCtx = speedoCanvas.getContext('2d');
+speedoCtx.imageSmoothingEnabled = false;
+
+function speedoAngle(kph) {
+  // pi (pointing left, 0 km/h) sweeping clockwise up and over to
+  // 0 (pointing right, SPEEDO_MAX_KPH).
+  return Math.PI - (Math.min(kph, SPEEDO_MAX_KPH) / SPEEDO_MAX_KPH) * Math.PI;
+}
+
+function drawSpeedometer(kph) {
+  const w = speedoCanvas.width;
+  const h = speedoCanvas.height;
+  const cx = w / 2;
+  const cy = h - 6;
+  const radius = h - 14;
+
+  speedoCtx.fillStyle = '#111';
+  speedoCtx.fillRect(0, 0, w, h);
+
+  speedoCtx.strokeStyle = '#0f0';
+  speedoCtx.lineWidth = 2;
+  for (let tick = 0; tick <= SPEEDO_MAX_KPH; tick += 50) {
+    const angle = speedoAngle(tick);
+    const isMajor = tick % 100 === 0;
+    const innerRadius = isMajor ? radius - 12 : radius - 7;
+    speedoCtx.beginPath();
+    speedoCtx.moveTo(cx + innerRadius * Math.cos(angle), cy - innerRadius * Math.sin(angle));
+    speedoCtx.lineTo(cx + radius * Math.cos(angle), cy - radius * Math.sin(angle));
+    speedoCtx.stroke();
+    if (isMajor) {
+      const labelRadius = radius - 22;
+      speedoCtx.fillStyle = '#0f0';
+      speedoCtx.font = '9px monospace';
+      speedoCtx.textAlign = 'center';
+      speedoCtx.textBaseline = 'middle';
+      speedoCtx.fillText(
+        String(tick),
+        cx + labelRadius * Math.cos(angle),
+        cy - labelRadius * Math.sin(angle),
+      );
+    }
+  }
+
+  const needleAngle = speedoAngle(kph);
+  speedoCtx.strokeStyle = '#f00';
+  speedoCtx.lineWidth = 3;
+  speedoCtx.beginPath();
+  speedoCtx.moveTo(cx, cy);
+  speedoCtx.lineTo(
+    cx + (radius - 10) * Math.cos(needleAngle),
+    cy - (radius - 10) * Math.sin(needleAngle),
+  );
+  speedoCtx.stroke();
+
+  speedoCtx.fillStyle = '#f00';
+  speedoCtx.beginPath();
+  speedoCtx.arc(cx, cy, 4, 0, 2 * Math.PI);
+  speedoCtx.fill();
+
+  speedoCtx.fillStyle = '#0f0';
+  speedoCtx.font = '14px monospace';
+  speedoCtx.textAlign = 'center';
+  speedoCtx.textBaseline = 'alphabetic';
+  speedoCtx.fillText(`${Math.round(kph)} KPH`, cx, cy - radius / 3);
+}
+
 let lastFrameTime = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
@@ -209,6 +280,7 @@ function loop(now) {
   player.y += Math.sin(player.heading) * step;
 
   updateCamera();
+  drawSpeedometer(Math.abs(player.speed) * MPS_TO_KPH);
   requestAnimationFrame(loop);
 }
 
