@@ -63,7 +63,7 @@ const ORIGIN = [-1.276167, 51.6895];
 
 // Top speed depends on what's under the vehicle, sampled as a screen pixel
 // colour and matched against the neon_v1_1.json landcover/road fill colours.
-const ONROAD_MAX_SPEED = KPH_TO_MPS * 500; // tarmac (road line-color)
+const ONROAD_MAX_SPEED = KPH_TO_MPS * 650; // tarmac (road line-color)
 const OFFROAD_MAX_SPEED = KPH_TO_MPS * 60; // default ground when no other match
 const ROUGH_MAX_SPEED = KPH_TO_MPS * 30; // m/s, ice/wood/wetland/sand
 const IMPASSABLE_MAX_SPEED = 0; // m/s, water/buildings; reverse still works
