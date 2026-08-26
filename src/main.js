@@ -12,14 +12,45 @@ const GEARS = [
   { minSpeed: 80 * KPH_TO_MPS, peakAccel: 3.2 }, // 5th: 80 km/h and up
 ];
 
-function getForwardAccel(speed) {
-  let gear = GEARS[0];
-  for (const g of GEARS) {
-    if (speed >= g.minSpeed) gear = g;
+const GEAR_KICK_WIDTH = 0.1; // fraction of gear width covered by the upshift kick
+const GEAR_KICK_GAIN = 1.5; // peak gain right at the start of a gear, ramping to 1
+const GEAR_END_GAIN = 0.7; // gain logarithmically reached by the end of the gear
+
+function getGearIndex(speed) {
+  let index = 0;
+  for (let i = 0; i < GEARS.length; i++) {
+    if (speed >= GEARS[i].minSpeed) index = i;
     else break;
   }
-  const speedIntoGear = Math.max(0, speed - gear.minSpeed);
-  return gear.peakAccel / (1 + Math.log(1 + speedIntoGear));
+  return index;
+}
+
+function getGearRange(speed) {
+  const index = getGearIndex(speed);
+  const start = GEARS[index].minSpeed;
+  const end =
+    index + 1 < GEARS.length ? GEARS[index + 1].minSpeed : ONROAD_MAX_SPEED;
+  return { start, end };
+}
+
+function getGearGain(speed) {
+  const { start, end } = getGearRange(speed);
+  const width = end - start;
+  const t = width > 0 ? Math.min(1, Math.max(0, (speed - start) / width)) : 0;
+
+  if (t < GEAR_KICK_WIDTH) {
+    return GEAR_KICK_GAIN + (1 - GEAR_KICK_GAIN) * (t / GEAR_KICK_WIDTH);
+  }
+  // Logarithmic falloff from 1 down to GEAR_END_GAIN across the rest of the gear.
+  const u = (t - GEAR_KICK_WIDTH) / (1 - GEAR_KICK_WIDTH);
+  return 1 - (1 - GEAR_END_GAIN) * Math.log(1 + u * (Math.E - 1));
+}
+
+function getForwardAccel(speed) {
+  const clampedSpeed = Math.max(0, speed);
+  return (
+    GEARS[getGearIndex(clampedSpeed)].peakAccel * getGearGain(clampedSpeed)
+  );
 }
 
 const BRAKE_DECEL = 12; // m/s^2
@@ -244,18 +275,6 @@ revCtx.imageSmoothingEnabled = false;
 
 function revAngle(fraction) {
   return Math.PI - Math.min(Math.max(fraction, 0), 1) * Math.PI;
-}
-
-function getGearRange(speed) {
-  let index = 0;
-  for (let i = 0; i < GEARS.length; i++) {
-    if (speed >= GEARS[i].minSpeed) index = i;
-    else break;
-  }
-  const start = GEARS[index].minSpeed;
-  const end =
-    index + 1 < GEARS.length ? GEARS[index + 1].minSpeed : ONROAD_MAX_SPEED;
-  return { start, end };
 }
 
 function getRevFraction(speed) {
