@@ -64,7 +64,8 @@ const ORIGIN = [-1.276167, 51.6895];
 
 // Top speed depends on what's under the vehicle, sampled as a screen pixel
 // colour and matched against the neon_v1_1.json landcover/road fill colours.
-const ONROAD_MAX_SPEED = KPH_TO_MPS * 600; // tarmac (road line-color)
+const ONROAD_MAX_SPEED_KPH = 600;
+const ONROAD_MAX_SPEED = KPH_TO_MPS * ONROAD_MAX_SPEED_KPH; // tarmac (road line-color)
 const OFFROAD_MAX_SPEED = KPH_TO_MPS * 60; // default ground when no other match
 const ROUGH_MAX_SPEED = KPH_TO_MPS * 30; // m/s, ice/wood/wetland/sand
 const IMPASSABLE_MAX_SPEED = 0; // m/s, water/buildings; reverse still works
@@ -196,7 +197,7 @@ for (const button of document.querySelectorAll('#controls button')) {
 
 // Low-res gauge: small canvas backing store, scaled up by CSS with
 // image-rendering: pixelated so it reads as a chunky retro dial.
-const SPEEDO_MAX_KPH = ONROAD_MAX_SPEED;
+const SPEEDO_MAX_KPH = ONROAD_MAX_SPEED_KPH;
 const MPS_TO_KPH = 3.6;
 const speedoCanvas = document.getElementById('speedometer');
 const speedoCtx = speedoCanvas.getContext('2d');
